@@ -197,13 +197,6 @@ const Leads = () => {
 
   return (
     <div className="container mx-auto pt-24 pb-10 space-y-6">
-      <div className="flex flex-col items-center space-y-3 text-center mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Saved Leads</h1>
-        <p className="text-gray-500 max-w-2xl">
-          View and manage all the business leads you've saved from Google Maps
-        </p>
-      </div>
-
       <Card className="shadow-lg">
         <CardHeader className="bg-gray-50 border-b px-6 py-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

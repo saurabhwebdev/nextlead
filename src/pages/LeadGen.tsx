@@ -542,22 +542,6 @@ const LeadGen = () => {
         </div>
       )}
       
-      <div className="text-center space-y-6 max-w-3xl mb-10">
-        <div className="inline-flex">
-          <span className="rounded-full bg-indigo-600/10 px-3 py-1 text-sm font-semibold leading-6 text-indigo-600 ring-1 ring-inset ring-indigo-600/10">
-            Beta Feature
-          </span>
-        </div>
-        
-        <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-          MapHarvest
-        </h1>
-        
-        <p className="text-xl text-gray-600">
-          Generate leads by scraping business information from Google Maps based on your search criteria.
-        </p>
-      </div>
-
       <Tabs defaultValue="search" value={activeTab} onValueChange={setActiveTab} className="w-full max-w-6xl">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="search">Search Criteria</TabsTrigger>

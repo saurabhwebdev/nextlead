@@ -1,24 +1,13 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { MapPin } from 'lucide-react';
 
 const Index = () => {
   return (
     <div className="bg-gradient-to-b from-white to-gray-50">
-      {/* Simple Hero Section with Coming Soon */}
+      {/* Hero Section */}
       <div className="relative isolate overflow-hidden">
-        <div className="mx-auto max-w-7xl px-6 py-24 sm:py-32 md:py-48 flex flex-col items-center justify-center text-center">
+        <div className="mx-auto max-w-7xl px-6 py-16 sm:py-24 md:py-32 flex flex-col items-center justify-center text-center">
           <div className="space-y-8 max-w-3xl mx-auto">
-            <div className="flex items-center justify-center mb-4">
-              <MapPin className="h-12 w-12 text-indigo-600" />
-            </div>
-            
-            <div className="inline-flex space-x-2 justify-center">
-              <span className="rounded-full bg-indigo-600/10 px-3 py-1 text-sm font-semibold leading-6 text-indigo-600 ring-1 ring-inset ring-indigo-600/10">
-                Beta
-              </span>
-            </div>
-            
             <h1 className="text-6xl font-bold tracking-tight text-gray-900 sm:text-7xl">
               MapHarvest
             </h1>
