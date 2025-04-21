@@ -8,8 +8,11 @@ const Index = () => {
       <div className="relative isolate overflow-hidden">
         <div className="mx-auto max-w-7xl px-6 py-16 sm:py-24 md:py-32 flex flex-col items-center justify-center text-center">
           <div className="space-y-8 max-w-3xl mx-auto">
-            <h1 className="text-6xl font-bold tracking-tight text-gray-900 sm:text-7xl">
-              MapHarvest
+            <h1 className="text-6xl font-bold tracking-tight sm:text-7xl relative">
+              <span className="animate-gradient-text bg-gradient-to-r from-purple-600 via-indigo-500 to-blue-600 
+                bg-[size:400%] bg-clip-text text-transparent">
+                MapHarvest
+              </span>
             </h1>
             
             <p className="text-xl leading-8 text-gray-600 max-w-2xl mx-auto">
