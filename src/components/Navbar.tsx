@@ -131,6 +131,12 @@ const Navbar = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="hover:bg-gray-100 cursor-pointer py-1.5 pl-2 gap-2">
+                    <Link to="/profile" className="flex items-center">
+                      <User className="mr-2 h-4 w-4 text-gray-500" />
+                      <span>Profile</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="hover:bg-gray-100 cursor-pointer py-1.5 pl-2 gap-2">
                     <Link to="/lead-gen" className="flex items-center">
                       <LineChart className="mr-2 h-4 w-4 text-gray-500" />
                       <span>Lead Generation</span>
@@ -209,6 +215,9 @@ const Navbar = () => {
               <>
                 <MobileNavLink to="/dashboard" active={isActive('/dashboard')} icon={<User className="h-4 w-4" />}>
                   Dashboard
+                </MobileNavLink>
+                <MobileNavLink to="/profile" active={isActive('/profile')} icon={<User className="h-4 w-4" />}>
+                  Profile
                 </MobileNavLink>
                 <MobileNavLink to="/lead-gen" active={isActive('/lead-gen')} icon={<LineChart className="h-4 w-4" />}>
                   Lead Generation
