@@ -62,36 +62,21 @@ export const scrapeGoogleMaps = async (params) => {
       });
     }
     
-    // For smaller scrapes, use regular approach with simulated progress
+    // For regular scrapes, use standard API call
     const response = await axios.post(`${API_URL}/api/scrape`, apiParams);
     
-    // If onProgress is provided, simulate intermediate progress
+    // If onProgress is provided, report real progress
     if (onProgress) {
       // First progress update at 20%
-      setTimeout(() => {
-        onProgress(20, 0, params.selectedLocalities[0]);
-      }, 500);
+      onProgress(20, 0, params.selectedLocalities[0]);
       
-      // Second progress update at 40%
-      setTimeout(() => {
-        onProgress(40, Math.floor(Math.random() * 5) + 2, params.selectedLocalities[0]);
-      }, 1500);
-      
-      // Third progress update at 60%
-      setTimeout(() => {
-        const randomLocality = params.selectedLocalities[
-          Math.min(1, params.selectedLocalities.length - 1)
-        ];
-        onProgress(60, Math.floor(Math.random() * 8) + 5, randomLocality);
-      }, 2500);
-      
-      // Final progress update before completion
-      setTimeout(() => {
-        onProgress(80, response.data.results?.length || 0, 
+      // Further progress updates with actual data from API
+      if (response.data.results) {
+        onProgress(80, response.data.results.length, 
           params.selectedLocalities[
-            Math.min(2, params.selectedLocalities.length - 1)
+            Math.min(params.selectedLocalities.length - 1, 1)
           ]);
-      }, 3500);
+      }
     }
     
     return response.data;
@@ -99,58 +84,4 @@ export const scrapeGoogleMaps = async (params) => {
     console.error('Error scraping Google Maps:', error);
     throw error;
   }
-};
-
-// Mock data for development/testing
-export const getMockResults = () => {
-  return {
-    success: true,
-    results: [
-      {
-        title: 'Bandra Dental Clinic',
-        rating: '4.5',
-        reviews: '125',
-        type: 'Dentist',
-        address: '123 Hill Road, Bandra West, Mumbai, Maharashtra 400050',
-        openState: 'Open ⋅ Closes 8PM',
-        phone: '+91 22 2642 1234',
-        website: 'https://example.com/bandra-dental',
-        description: 'Family dental practice offering comprehensive dental care',
-        serviceOptions: 'On-site parking ⋅ Wheelchair accessible',
-        coordinates: { latitude: '19.0596', longitude: '72.8295' },
-        thumbnail: 'https://via.placeholder.com/150',
-        searchQuery: 'dentist bandra mumbai'
-      },
-      {
-        title: 'SmileCare Dental Center',
-        rating: '4.2',
-        reviews: '89',
-        type: 'Dentist',
-        address: '45 Turner Road, Bandra West, Mumbai, Maharashtra 400050',
-        openState: 'Open ⋅ Closes 7PM',
-        phone: '+91 22 2648 5678',
-        website: 'https://example.com/smilecare',
-        description: 'Modern dental clinic specializing in cosmetic dentistry',
-        serviceOptions: 'Appointment required ⋅ Masks required',
-        coordinates: { latitude: '19.0612', longitude: '72.8302' },
-        thumbnail: 'https://via.placeholder.com/150',
-        searchQuery: 'dentist bandra mumbai'
-      },
-      {
-        title: 'Juhu Dental Specialists',
-        rating: '4.7',
-        reviews: '203',
-        type: 'Dentist',
-        address: '78 Juhu Tara Road, Juhu, Mumbai, Maharashtra 400049',
-        openState: 'Closed ⋅ Opens 9AM tomorrow',
-        phone: '+91 22 2620 9876',
-        website: 'https://example.com/juhu-dental',
-        description: 'Premium dental care for all ages',
-        serviceOptions: 'By appointment only ⋅ Private parking',
-        coordinates: { latitude: '19.0883', longitude: '72.8258' },
-        thumbnail: 'https://via.placeholder.com/150',
-        searchQuery: 'dentist juhu mumbai'
-      }
-    ]
-  };
 }; 

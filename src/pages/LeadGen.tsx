@@ -50,7 +50,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { scrapeGoogleMaps, getMockResults } from '@/api/mapsClient';
+import { scrapeGoogleMaps } from '@/api/mapsClient';
 import { Progress } from "@/components/ui/progress";
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -183,7 +183,6 @@ const LeadGen = () => {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Business[]>([]);
   const [activeTab, setActiveTab] = useState('search');
-  const [useMockData, setUseMockData] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>(null);
   const [filteredResults, setFilteredResults] = useState<Business[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -266,7 +265,7 @@ const LeadGen = () => {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({
-      title: "Copied!",
+      title: "Copied",
       description: "Text copied to clipboard",
       duration: 2000
     });
@@ -290,87 +289,47 @@ const LeadGen = () => {
     setCurrentArea('');
     setLoadingMessage("Initializing scraper...");
     
-    // Simulate progress for better UX
+    // Progress tracking interval - only for visual feedback
     const progressInterval = setInterval(() => {
       setLoadingProgress(prev => {
         if (prev >= 95) {
           clearInterval(progressInterval);
           return prev;
         }
-        
-        // Create a more natural and gradual progress curve
-        let increment = 0;
-        if (prev < 20) {
-          // Start faster
-          increment = Math.random() * 5 + 2;
-        } else if (prev < 60) {
-          // Steady pace
-          increment = Math.random() * 3 + 1;
-        } else {
-          // Slow down as we approach the end
-          increment = Math.random() * 1.5 + 0.5;
-        }
-        
-        const newProgress = prev + increment;
-        
-        // Update loading message based on progress
-        if (newProgress > 85) {
-          setLoadingMessage("Finalizing and processing results...");
-        } else if (newProgress > 60) {
-          setLoadingMessage("Extracting business details...");
-          // Simulate finding businesses
-          if (Math.random() > 0.7) {
-            setScrapedCount(prev => prev + Math.floor(Math.random() * 3) + 1);
-          }
-        } else if (newProgress > 40) {
-          setLoadingMessage("Scrolling and collecting data...");
-          // Simulate finding businesses
-          if (Math.random() > 0.5) {
-            setScrapedCount(prev => prev + Math.floor(Math.random() * 2) + 1);
-          }
-        } else if (newProgress > 15) {
-          // Update current area being searched
-          if (Math.random() > 0.8 && selectedLocalities.length > 0) {
-            const randomLocality = selectedLocalities[Math.floor(Math.random() * selectedLocalities.length)];
-            setCurrentArea(getLocalityName(randomLocality));
-          }
-          setLoadingMessage("Searching for businesses...");
-        }
-        
-        return Math.min(newProgress, 95);
+        return Math.min(prev + Math.random() * 2, 95);
       });
-    }, 800);
+    }, 1000);
     
     try {
-      let data;
+      const localityNames = selectedLocalities.map(id => {
+        const localityObj = localities[location as keyof typeof localities]?.find(l => l.id === id);
+        return localityObj?.name || id;
+      });
       
-      if (useMockData) {
-        data = getMockResults();
-        // Simulate scrolling progress for mock data
-        setTimeout(() => {
-          setScrapedCount(15);
-          setLoadingMessage("Extracting business details...");
-        }, 2000);
-      } else {
-        const localityNames = selectedLocalities.map(id => {
-          const localityObj = localities[location as keyof typeof localities]?.find(l => l.id === id);
-          return localityObj?.name || id;
-        });
-        
-        data = await scrapeGoogleMaps({
-          businessType,
-          subcategory,
-          location: locations.find(loc => loc.id === location)?.name || location,
-          selectedLocalities: localityNames,
-          additionalKeywords,
-          scrollCount,
-          onProgress: (progress: number, count: number, area?: string) => {
-            setLoadingProgress(Math.min(95, progress));
-            if (count > 0) setScrapedCount(count);
-            if (area) setCurrentArea(area);
+      const data = await scrapeGoogleMaps({
+        businessType,
+        subcategory,
+        location: locations.find(loc => loc.id === location)?.name || location,
+        selectedLocalities: localityNames,
+        additionalKeywords,
+        scrollCount,
+        onProgress: (progress: number, count: number, area?: string) => {
+          setLoadingProgress(Math.min(95, progress));
+          if (count > 0) setScrapedCount(count);
+          if (area) setCurrentArea(area);
+          
+          // Update loading message based on progress
+          if (progress > 80) {
+            setLoadingMessage("Finalizing and processing results...");
+          } else if (progress > 60) {
+            setLoadingMessage("Extracting business details...");
+          } else if (progress > 30) {
+            setLoadingMessage("Scrolling and collecting data...");
+          } else {
+            setLoadingMessage("Searching for businesses...");
           }
-        });
-      }
+        }
+      });
       
       // Set progress to 100% when done
       clearInterval(progressInterval);
@@ -400,7 +359,7 @@ const LeadGen = () => {
       console.error('Error fetching data:', error);
       toast({
         title: "Error",
-        description: "Failed to retrieve business data. Please try again or use mock data.",
+        description: "Failed to retrieve business data. Please try again.",
         variant: "destructive"
       });
       setLoading(false);
@@ -894,20 +853,6 @@ const LeadGen = () => {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-500">Controls how many results are loaded by scrolling the page.</p>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="use-mock-data" 
-                  checked={useMockData} 
-                  onCheckedChange={(checked) => setUseMockData(checked === true)}
-                />
-                <Label 
-                  htmlFor="use-mock-data" 
-                  className="text-sm font-normal cursor-pointer"
-                >
-                  Use mock data (for testing without running actual scraper)
-                </Label>
               </div>
             </CardContent>
             <CardFooter className="flex justify-between">
