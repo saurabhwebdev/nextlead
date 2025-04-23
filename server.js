@@ -243,34 +243,22 @@ async function processScrapeJob(sessionId) {
 
 // Helper to simulate scraping a single locality
 function simulateLocalityScrape(query, location, locality, scrollCount) {
-  return new Promise(resolve => {
-    // Simulate variable processing time based on scroll count
-    const baseDelay = 2000;
-    const scrollDelay = scrollCount * 400;
-    const totalDelay = baseDelay + scrollDelay;
-    
-    setTimeout(() => {
-      // Create some mock results
-      const count = Math.floor(Math.random() * 5) + 3;
-      const results = [];
-      
-      for (let i = 0; i < count; i++) {
-        results.push({
-          title: `${locality} Business ${i + 1}`,
-          rating: (Math.random() * 2 + 3).toFixed(1),
-          reviews: Math.floor(Math.random() * 100 + 20).toString(),
-          type: query,
-          address: `${Math.floor(Math.random() * 200)} ${locality} St, ${location}`,
-          openState: Math.random() > 0.3 ? 'Open ⋅ Closes 8PM' : 'Closed ⋅ Opens 9AM tomorrow',
-          phone: `+91 ${Math.floor(Math.random() * 90 + 10)} ${Math.floor(Math.random() * 9000 + 1000)} ${Math.floor(Math.random() * 9000 + 1000)}`,
-          website: `https://example.com/${locality.toLowerCase()}-${i + 1}`,
-          coordinates: { latitude: (Math.random() * 2 + 18).toFixed(4), longitude: (Math.random() * 2 + 72).toFixed(4) },
-          searchQuery: `${query} ${locality} ${location}`
-        });
-      }
+  return new Promise(async (resolve) => {
+    try {
+      // Use real Google Maps scraper
+      const results = await scrapeGoogleMaps({
+        query,
+        location,
+        localities: [locality],
+        scrollCount: scrollCount || 3,
+        additionalKeywords: []
+      });
       
       resolve(results);
-    }, totalDelay);
+    } catch (error) {
+      console.error(`Error scraping locality ${locality}:`, error);
+      resolve([]); // Return empty array on error
+    }
   });
 }
 

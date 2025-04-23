@@ -188,6 +188,7 @@ const LeadGen = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [scrollCount, setScrollCount] = useState(5);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [elapsedTime, setElapsedTime] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState("Initializing scraper...");
   const [scrapedCount, setScrapedCount] = useState(0);
   const [currentArea, setCurrentArea] = useState('');
@@ -285,9 +286,15 @@ const LeadGen = () => {
     setResults([]);
     setFilteredResults([]);
     setLoadingProgress(0);
+    setElapsedTime(0);
     setScrapedCount(0);
     setCurrentArea('');
     setLoadingMessage("Initializing scraper...");
+    
+    // Start a timer to track elapsed time in seconds
+    const timerInterval = setInterval(() => {
+      setElapsedTime(prev => prev + 1);
+    }, 1000);
     
     // Progress tracking interval - only for visual feedback
     const progressInterval = setInterval(() => {
@@ -298,7 +305,7 @@ const LeadGen = () => {
         }
         return Math.min(prev + Math.random() * 2, 95);
       });
-    }, 1000);
+    }, 500);
     
     try {
       const localityNames = selectedLocalities.map(id => {
@@ -333,6 +340,7 @@ const LeadGen = () => {
       
       // Set progress to 100% when done
       clearInterval(progressInterval);
+      clearInterval(timerInterval);
       setLoadingProgress(100);
       setLoadingMessage("Completed! Processing results...");
       
@@ -355,6 +363,7 @@ const LeadGen = () => {
       }, 500);
     } catch (error) {
       clearInterval(progressInterval);
+      clearInterval(timerInterval);
       setLoadingProgress(100);
       console.error('Error fetching data:', error);
       toast({
@@ -463,8 +472,14 @@ const LeadGen = () => {
 
     try {
       setLoading(true);
-      setLoadingMessage("Saving data to Supabase...");
       setLoadingProgress(0);
+      setElapsedTime(0);
+      setLoadingMessage("Saving data to Supabase...");
+      
+      // Start a timer to track elapsed time
+      const timerInterval = setInterval(() => {
+        setElapsedTime(prev => prev + 1);
+      }, 1000);
 
       // Create a progress interval
       const progressInterval = setInterval(() => {
@@ -496,6 +511,7 @@ const LeadGen = () => {
         .insert(businessData);
 
       clearInterval(progressInterval);
+      clearInterval(timerInterval);
       setLoadingProgress(100);
 
       if (error) {
@@ -597,6 +613,13 @@ const LeadGen = () => {
 
   const sortedResults = getSortedResults();
 
+  // Helper function to format elapsed time as mm:ss
+  const formatElapsedTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="flex flex-col items-center justify-start min-h-[calc(100vh-64px)] bg-gray-50 px-4 py-16 relative">
       {loading && (
@@ -623,7 +646,12 @@ const LeadGen = () => {
             
             <div className="mb-1 text-sm font-medium text-gray-700 flex justify-between">
               <span>Processing</span>
-              <span>{Math.round(loadingProgress)}%</span>
+              <div className="flex items-center space-x-3">
+                <span className="text-gray-500">
+                  Elapsed: {formatElapsedTime(elapsedTime)}
+                </span>
+                <span>{Math.round(loadingProgress)}%</span>
+              </div>
             </div>
             
             <Progress 
