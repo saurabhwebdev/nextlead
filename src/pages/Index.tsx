@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
+  const { user } = useAuth();
+  
   return (
     <div className="bg-gradient-to-b from-white to-gray-50">
       {/* Hero Section */}
@@ -20,16 +23,26 @@ const Index = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/login" className="w-full sm:w-auto">
-                <Button size="lg" className="rounded-md w-full sm:w-auto">
-                  Sign In
-                </Button>
-              </Link>
-              <Link to="/signup" className="w-full sm:w-auto">
-                <Button variant="outline" size="lg" className="rounded-md w-full sm:w-auto">
-                  Sign Up
-                </Button>
-              </Link>
+              {user ? (
+                <Link to="/dashboard" className="w-full sm:w-auto">
+                  <Button size="lg" className="rounded-md w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600">
+                    Go to Dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <>
+                  <Link to="/login" className="w-full sm:w-auto">
+                    <Button size="lg" className="rounded-md w-full sm:w-auto">
+                      Sign In
+                    </Button>
+                  </Link>
+                  <Link to="/signup" className="w-full sm:w-auto">
+                    <Button variant="outline" size="lg" className="rounded-md w-full sm:w-auto">
+                      Sign Up
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

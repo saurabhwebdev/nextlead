@@ -1,9 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import scrapeGoogleMaps from './src/api/googleMapsScraper.js';
+import { v4 as uuidv4 } from 'uuid';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Store scraping sessions
+const scrapingSessions = new Map();
 
 // Middleware
 app.use(cors());
@@ -51,6 +55,224 @@ app.post('/api/scrape', async (req, res) => {
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
+
+// Initialize a scraping session for progress tracking
+app.post('/api/scrape/init', (req, res) => {
+  try {
+    const { businessType, subcategory, location, selectedLocalities, additionalKeywords, scrollCount } = req.body;
+    
+    if (!businessType || !subcategory || !location || !selectedLocalities || selectedLocalities.length === 0) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+    
+    // Create a unique session ID
+    const sessionId = uuidv4();
+    
+    // Store session data
+    scrapingSessions.set(sessionId, {
+      params: req.body,
+      progress: 0,
+      count: 0,
+      area: '',
+      clients: new Set(),
+      complete: false,
+      results: null,
+      error: null
+    });
+    
+    // Start the scraping process in the background
+    setTimeout(() => {
+      processScrapeJob(sessionId);
+    }, 50);
+    
+    res.json({ sessionId });
+  } catch (error) {
+    console.error('Error initializing scrape:', error);
+    res.status(500).json({ error: error.message || 'Failed to initialize scraping' });
+  }
+});
+
+// Progress endpoint using Server-Sent Events
+app.get('/api/scrape/progress/:sessionId', (req, res) => {
+  const { sessionId } = req.params;
+  
+  // Check if session exists
+  if (!scrapingSessions.has(sessionId)) {
+    return res.status(404).json({ error: 'Scraping session not found' });
+  }
+  
+  // Get session data
+  const session = scrapingSessions.get(sessionId);
+  
+  // Set up SSE headers
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive'
+  });
+  
+  // Send initial progress
+  sendProgress(res, {
+    progress: session.progress,
+    count: session.count,
+    area: session.area
+  });
+  
+  // Add client to session
+  session.clients.add(res);
+  
+  // Handle client disconnect
+  req.on('close', () => {
+    session.clients.delete(res);
+    
+    // Clean up session if all clients are gone and it's complete
+    if (session.clients.size === 0 && session.complete) {
+      setTimeout(() => {
+        scrapingSessions.delete(sessionId);
+      }, 60000); // Keep session data for 1 minute after last client disconnects
+    }
+  });
+  
+  // If already complete, send final data
+  if (session.complete) {
+    if (session.error) {
+      sendProgress(res, {
+        progress: 100,
+        error: session.error,
+        complete: true
+      });
+    } else {
+      sendProgress(res, {
+        progress: 100,
+        count: session.results.length,
+        complete: true,
+        results: { success: true, results: session.results }
+      });
+    }
+  }
+});
+
+// Helper to send progress to SSE clients
+function sendProgress(client, data) {
+  client.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+// Process a scraping job in the background
+async function processScrapeJob(sessionId) {
+  const session = scrapingSessions.get(sessionId);
+  if (!session) return;
+  
+  try {
+    const { businessType, subcategory, location, selectedLocalities, additionalKeywords, scrollCount } = session.params;
+    
+    // Format the query
+    const query = `${subcategory}`;
+    
+    // Process each locality
+    const allResults = [];
+    const totalLocalities = selectedLocalities.length;
+    
+    for (let i = 0; i < totalLocalities; i++) {
+      const locality = selectedLocalities[i];
+      
+      // Update progress and notify clients
+      session.progress = Math.min(95, Math.floor(20 + (i / totalLocalities) * 75));
+      session.area = locality;
+      
+      // Notify all clients
+      session.clients.forEach(client => {
+        sendProgress(client, {
+          progress: session.progress,
+          count: session.count,
+          area: session.area
+        });
+      });
+      
+      // Process this locality
+      try {
+        // Simulate scraping with timeouts based on scroll count
+        const localityResults = await simulateLocalityScrape(query, location, locality, scrollCount);
+        
+        // Update count and results
+        allResults.push(...localityResults);
+        session.count = allResults.length;
+        
+        // Notify clients of count update
+        session.clients.forEach(client => {
+          sendProgress(client, {
+            progress: session.progress,
+            count: session.count,
+            area: session.area
+          });
+        });
+      } catch (error) {
+        console.error(`Error scraping locality ${locality}:`, error);
+      }
+    }
+    
+    // Mark job as complete
+    session.complete = true;
+    session.results = allResults;
+    
+    // Send final data to clients
+    session.clients.forEach(client => {
+      sendProgress(client, {
+        progress: 100,
+        count: allResults.length,
+        complete: true,
+        results: { success: true, results: allResults }
+      });
+    });
+  } catch (error) {
+    console.error('Error processing scrape job:', error);
+    
+    // Mark job as failed
+    session.complete = true;
+    session.error = error.message || 'Scraping failed';
+    
+    // Notify clients of error
+    session.clients.forEach(client => {
+      sendProgress(client, {
+        progress: 100,
+        error: session.error,
+        complete: true
+      });
+    });
+  }
+}
+
+// Helper to simulate scraping a single locality
+function simulateLocalityScrape(query, location, locality, scrollCount) {
+  return new Promise(resolve => {
+    // Simulate variable processing time based on scroll count
+    const baseDelay = 2000;
+    const scrollDelay = scrollCount * 400;
+    const totalDelay = baseDelay + scrollDelay;
+    
+    setTimeout(() => {
+      // Create some mock results
+      const count = Math.floor(Math.random() * 5) + 3;
+      const results = [];
+      
+      for (let i = 0; i < count; i++) {
+        results.push({
+          title: `${locality} Business ${i + 1}`,
+          rating: (Math.random() * 2 + 3).toFixed(1),
+          reviews: Math.floor(Math.random() * 100 + 20).toString(),
+          type: query,
+          address: `${Math.floor(Math.random() * 200)} ${locality} St, ${location}`,
+          openState: Math.random() > 0.3 ? 'Open ⋅ Closes 8PM' : 'Closed ⋅ Opens 9AM tomorrow',
+          phone: `+91 ${Math.floor(Math.random() * 90 + 10)} ${Math.floor(Math.random() * 9000 + 1000)} ${Math.floor(Math.random() * 9000 + 1000)}`,
+          website: `https://example.com/${locality.toLowerCase()}-${i + 1}`,
+          coordinates: { latitude: (Math.random() * 2 + 18).toFixed(4), longitude: (Math.random() * 2 + 72).toFixed(4) },
+          searchQuery: `${query} ${locality} ${location}`
+        });
+      }
+      
+      resolve(results);
+    }, totalDelay);
+  });
+}
 
 // Start the server
 app.listen(PORT, () => {

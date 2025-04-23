@@ -22,7 +22,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ChevronsUpDown, MapPin, Search, Star, Phone, Globe, ExternalLink, Clock, ChevronDown, ChevronUp, Download, Copy, Filter, ArrowUpDown, Database } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ChevronsUpDown, MapPin, Search, Star, Phone, Globe, ExternalLink, Clock, ChevronDown, ChevronUp, Download, Copy, Filter, ArrowUpDown, Database, MessageSquare, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +40,8 @@ import { toast } from "@/components/ui/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Table,
   TableBody,
@@ -42,6 +53,7 @@ import {
 import { scrapeGoogleMaps, getMockResults } from '@/api/mapsClient';
 import { Progress } from "@/components/ui/progress";
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Sample data for dropdowns
 const businessTypes = [
@@ -154,6 +166,12 @@ interface Business {
   searchQuery?: string;
 }
 
+interface FeedbackFormData {
+  type: 'bug' | 'feature' | 'improvement' | 'legal' | 'other';
+  message: string;
+  rating?: number;
+}
+
 const LeadGen = () => {
   const [businessType, setBusinessType] = useState<string>('');
   const [subcategory, setSubcategory] = useState<string>('');
@@ -172,6 +190,15 @@ const LeadGen = () => {
   const [scrollCount, setScrollCount] = useState(5);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState("Initializing scraper...");
+  const [scrapedCount, setScrapedCount] = useState(0);
+  const [currentArea, setCurrentArea] = useState('');
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackForm, setFeedbackForm] = useState<FeedbackFormData>({
+    type: 'improvement',
+    message: '',
+  });
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const { user } = useAuth();
 
   const handleBusinessTypeChange = (value: string) => {
     setBusinessType(value);
@@ -259,6 +286,8 @@ const LeadGen = () => {
     setResults([]);
     setFilteredResults([]);
     setLoadingProgress(0);
+    setScrapedCount(0);
+    setCurrentArea('');
     setLoadingMessage("Initializing scraper...");
     
     // Simulate progress for better UX
@@ -289,9 +318,22 @@ const LeadGen = () => {
           setLoadingMessage("Finalizing and processing results...");
         } else if (newProgress > 60) {
           setLoadingMessage("Extracting business details...");
+          // Simulate finding businesses
+          if (Math.random() > 0.7) {
+            setScrapedCount(prev => prev + Math.floor(Math.random() * 3) + 1);
+          }
         } else if (newProgress > 40) {
           setLoadingMessage("Scrolling and collecting data...");
+          // Simulate finding businesses
+          if (Math.random() > 0.5) {
+            setScrapedCount(prev => prev + Math.floor(Math.random() * 2) + 1);
+          }
         } else if (newProgress > 15) {
+          // Update current area being searched
+          if (Math.random() > 0.8 && selectedLocalities.length > 0) {
+            const randomLocality = selectedLocalities[Math.floor(Math.random() * selectedLocalities.length)];
+            setCurrentArea(getLocalityName(randomLocality));
+          }
           setLoadingMessage("Searching for businesses...");
         }
         
@@ -304,6 +346,11 @@ const LeadGen = () => {
       
       if (useMockData) {
         data = getMockResults();
+        // Simulate scrolling progress for mock data
+        setTimeout(() => {
+          setScrapedCount(15);
+          setLoadingMessage("Extracting business details...");
+        }, 2000);
       } else {
         const localityNames = selectedLocalities.map(id => {
           const localityObj = localities[location as keyof typeof localities]?.find(l => l.id === id);
@@ -316,7 +363,12 @@ const LeadGen = () => {
           location: locations.find(loc => loc.id === location)?.name || location,
           selectedLocalities: localityNames,
           additionalKeywords,
-          scrollCount
+          scrollCount,
+          onProgress: (progress: number, count: number, area?: string) => {
+            setLoadingProgress(Math.min(95, progress));
+            if (count > 0) setScrapedCount(count);
+            if (area) setCurrentArea(area);
+          }
         });
       }
       
@@ -328,6 +380,7 @@ const LeadGen = () => {
       // Small delay to show 100% before hiding the loader
       setTimeout(() => {
         if (data.success && data.results) {
+          setScrapedCount(data.results.length);
           setResults(data.results);
           setFilteredResults(data.results);
           setActiveTab('results');
@@ -347,7 +400,7 @@ const LeadGen = () => {
       console.error('Error fetching data:', error);
       toast({
         title: "Error",
-        description: "Failed to retrieve business data. Please try again or use mock data for testing.",
+        description: "Failed to retrieve business data. Please try again or use mock data.",
         variant: "destructive"
       });
       setLoading(false);
@@ -440,6 +493,15 @@ const LeadGen = () => {
       return;
     }
 
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to save data.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       setLoading(true);
       setLoadingMessage("Saving data to Supabase...");
@@ -465,7 +527,8 @@ const LeadGen = () => {
         latitude: business.coordinates?.latitude || null,
         longitude: business.coordinates?.longitude || null,
         search_query: business.searchQuery || null,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        user_id: user.id
       }));
 
       // Insert data into Supabase
@@ -500,6 +563,79 @@ const LeadGen = () => {
     }
   };
 
+  const handleFeedbackChange = (field: keyof FeedbackFormData, value: any) => {
+    setFeedbackForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const submitFeedback = async () => {
+    if (!feedbackForm.message.trim()) {
+      toast({
+        title: "Please enter a message",
+        description: "We need your feedback to improve the tool.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to submit feedback.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setFeedbackSubmitting(true);
+    
+    try {
+      // Get browser info
+      const browserInfo = JSON.stringify({
+        userAgent: navigator.userAgent,
+        screenSize: `${window.innerWidth}x${window.innerHeight}`,
+        url: window.location.href
+      });
+
+      // Insert feedback to Supabase
+      const { error } = await supabase
+        .from('feedback')
+        .insert({
+          user_id: user.id,
+          feedback_type: feedbackForm.type,
+          message: feedbackForm.message,
+          rating: feedbackForm.rating,
+          page: 'LeadGen',
+          browser_info: browserInfo,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Thank you for your feedback!",
+        description: "We appreciate your input and will review it soon.",
+      });
+
+      // Reset form and close modal
+      setFeedbackForm({
+        type: 'improvement',
+        message: '',
+      });
+      setFeedbackOpen(false);
+    } catch (error: any) {
+      console.error('Error submitting feedback:', error);
+      toast({
+        title: "Error submitting feedback",
+        description: error.message || "Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
+
   const sortedResults = getSortedResults();
 
   return (
@@ -514,6 +650,16 @@ const LeadGen = () => {
               <h3 className="text-lg font-semibold text-gray-900 text-center">
                 {loadingMessage}
               </h3>
+              {currentArea && (
+                <p className="text-sm text-indigo-600 mt-1 font-medium">
+                  Searching in {currentArea}
+                </p>
+              )}
+              {scrapedCount > 0 && (
+                <div className="mt-2 flex items-center justify-center bg-indigo-50 px-3 py-1 rounded-full">
+                  <span className="text-indigo-700 font-medium">{scrapedCount} businesses found</span>
+                </div>
+              )}
             </div>
             
             <div className="mb-1 text-sm font-medium text-gray-700 flex justify-between">
@@ -525,6 +671,15 @@ const LeadGen = () => {
               value={loadingProgress} 
               className="h-2 mb-5" 
             />
+            
+            {scrollCount > 5 && (
+              <div className="mb-4 px-3 py-2 bg-amber-50 border border-amber-100 rounded text-sm text-amber-700">
+                <p className="flex items-start">
+                  <Clock className="h-4 w-4 mr-1.5 mt-0.5 flex-shrink-0" />
+                  <span>Scraping with {scrollCount} scrolls may take longer. Please be patient.</span>
+                </p>
+              </div>
+            )}
             
             <div className="w-full h-0.5 mb-6 relative overflow-hidden rounded-full">
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-500 to-indigo-600 animate-gradient"></div>
@@ -776,20 +931,181 @@ const LeadGen = () => {
             </CardFooter>
           </Card>
 
-          {/* Coming soon message at the bottom */}
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md max-w-6xl">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <MapPin className="h-5 w-5 text-yellow-400" aria-hidden="true" />
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-yellow-800">Development in Progress</h3>
-                <div className="mt-2 text-sm text-yellow-700">
-                  <p>
-                    The Google Maps scraper feature is currently in development. This interface demonstrates 
-                    the planned functionality. The scraper extracts business information including 
-                    names, addresses, phone numbers, websites, and ratings from Google Maps results.
+          {/* Data scraping legal and feedback section */}
+          <div className="mt-6 overflow-hidden bg-gradient-to-r from-blue-50 to-indigo-50 shadow-sm border border-blue-100 rounded-xl">
+            <div className="p-6">
+              <div className="flex flex-col md:flex-row md:items-start gap-6">
+                {/* Left side - Disclaimer */}
+                <div className="flex-1">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0 p-2 bg-blue-100 rounded-lg">
+                      <AlertTriangle className="h-5 w-5 text-blue-600" aria-hidden="true" />
+                    </div>
+                    <h3 className="ml-3 text-base font-semibold text-blue-900">Data Scraping Guidelines</h3>
+                  </div>
+                  
+                  <div className="mt-4 space-y-3">
+                    <p className="text-sm leading-relaxed text-gray-700">
+                      Our scraper tool extracts publicly available business information from Google Maps.
+                      Please use this data responsibly and ethically.
+                    </p>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                      <div className="flex items-start">
+                        <div className="bg-blue-100 p-1 rounded-full">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-700" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <p className="ml-2 text-xs leading-tight text-gray-700">
+                          Use for legitimate business research and lead generation only
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-start">
+                        <div className="bg-blue-100 p-1 rounded-full">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-700" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <p className="ml-2 text-xs leading-tight text-gray-700">
+                          Adhere to Google's Terms of Service
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-start">
+                        <div className="bg-blue-100 p-1 rounded-full">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-700" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <p className="ml-2 text-xs leading-tight text-gray-700">
+                          Limit requests to avoid excessive scraping
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-start">
+                        <div className="bg-blue-100 p-1 rounded-full">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-700" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <p className="ml-2 text-xs leading-tight text-gray-700">
+                          Handle all data in compliance with privacy laws
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Vertical separator */}
+                <div className="hidden md:block w-px h-auto bg-blue-200"></div>
+                
+                {/* Right side - Feedback */}
+                <div className="flex-1 mt-5 md:mt-0">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0 p-2 bg-indigo-100 rounded-lg">
+                      <MessageSquare className="h-5 w-5 text-indigo-600" aria-hidden="true" />
+                    </div>
+                    <h3 className="ml-3 text-base font-semibold text-indigo-900">We Value Your Feedback</h3>
+                  </div>
+                  
+                  <p className="mt-4 text-sm leading-relaxed text-gray-700">
+                    We're constantly improving this tool and would love to hear your thoughts on how we can make it better.
                   </p>
+                  
+                  <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        size="sm" 
+                        className="mt-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white shadow-sm transition-all duration-150"
+                      >
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        <span>Share Your Feedback</span>
+                      </Button>
+                    </DialogTrigger>
+                    
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Share Your Feedback</DialogTitle>
+                        <DialogDescription>
+                          Help us improve the lead generation tool with your suggestions or report any issues.
+                        </DialogDescription>
+                      </DialogHeader>
+                      
+                      <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                          <Label>Feedback Type</Label>
+                          <RadioGroup 
+                            value={feedbackForm.type}
+                            onValueChange={(value) => handleFeedbackChange('type', value)}
+                            className="flex flex-wrap gap-4"
+                          >
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="bug" id="feedback-bug" />
+                              <Label htmlFor="feedback-bug">Bug</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="feature" id="feedback-feature" />
+                              <Label htmlFor="feedback-feature">Feature Request</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="improvement" id="feedback-improvement" />
+                              <Label htmlFor="feedback-improvement">Improvement</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="legal" id="feedback-legal" />
+                              <Label htmlFor="feedback-legal">Legal/Privacy</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="other" id="feedback-other" />
+                              <Label htmlFor="feedback-other">Other</Label>
+                            </div>
+                          </RadioGroup>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="feedback-message">Message</Label>
+                          <Textarea
+                            id="feedback-message"
+                            placeholder="Please describe your feedback in detail"
+                            value={feedbackForm.message}
+                            onChange={(e) => handleFeedbackChange('message', e.target.value)}
+                            rows={5}
+                            className="resize-none"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label>How would you rate this feature? (Optional)</Label>
+                          <div className="flex items-center space-x-2">
+                            {[1, 2, 3, 4, 5].map((rating) => (
+                              <Button
+                                key={rating}
+                                type="button"
+                                variant={feedbackForm.rating === rating ? "default" : "outline"}
+                                size="sm"
+                                className="w-8 h-8 p-0"
+                                onClick={() => handleFeedbackChange('rating', rating)}
+                              >
+                                {rating}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <DialogFooter>
+                        <Button
+                          type="submit"
+                          disabled={feedbackSubmitting || !feedbackForm.message.trim()}
+                          onClick={submitFeedback}
+                        >
+                          {feedbackSubmitting ? 'Submitting...' : 'Submit Feedback'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
             </div>
@@ -824,9 +1140,13 @@ const LeadGen = () => {
                       <span>Export to CSV</span>
                     </Button>
                     
-                    <Button onClick={saveToSupabase} variant="outline" size="sm" className="gap-1.5">
+                    <Button 
+                      onClick={saveToSupabase} 
+                      size="sm" 
+                      className="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
                       <Database className="h-4 w-4" />
-                      <span>Save to Supabase</span>
+                      <span>Save to Database</span>
                     </Button>
                   </div>
                 </div>

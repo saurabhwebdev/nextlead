@@ -7,6 +7,7 @@ import {
   CardDescription 
 } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   Table,
   TableBody,
@@ -54,14 +55,21 @@ const Leads = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchBusinesses = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
         const { data, error } = await supabase
           .from('businesses')
           .select('*')
+          .eq('user_id', user.id)
           .order('created_at', { ascending: false });
         
         if (error) throw error;
@@ -76,7 +84,7 @@ const Leads = () => {
     };
 
     fetchBusinesses();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (searchTerm) {

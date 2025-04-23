@@ -16,9 +16,39 @@ import {
   Bell
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const [leadCount, setLeadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLeadCount = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { count, error } = await supabase
+          .from('businesses')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+        
+        if (error) throw error;
+        
+        setLeadCount(count || 0);
+      } catch (error) {
+        console.error('Error fetching lead count:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLeadCount();
+  }, [user]);
 
   return (
     <div className="container mx-auto pt-24 pb-12 px-4 md:px-6">
@@ -112,6 +142,10 @@ const Dashboard = () => {
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   Active
                 </span>
+              </li>
+              <li className="flex justify-between">
+                <span className="text-gray-500">Saved Leads:</span>
+                <span className="font-medium">{loading ? '...' : leadCount}</span>
               </li>
             </ul>
           </CardContent>

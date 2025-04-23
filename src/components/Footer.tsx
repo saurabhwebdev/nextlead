@@ -1,4 +1,3 @@
-
 import { Link } from 'react-router-dom';
 
 const Footer = () => {
@@ -72,11 +71,11 @@ const Footer = () => {
         </div>
         <div className="mt-8 border-t border-gray-200 pt-8 md:flex md:items-center md:justify-between">
           <p className="text-base text-gray-500">
-            &copy; {currentYear} BreezAuth. All rights reserved.
+            &copy; {currentYear} NextLead. All rights reserved.
           </p>
           <div className="mt-4 md:mt-0">
             <p className="text-sm text-gray-500">
-              Crafted with care for your app
+              Crafted with care for your business
             </p>
           </div>
         </div>
